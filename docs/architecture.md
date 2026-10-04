@@ -1,51 +1,49 @@
 # DocuMind AI — Architecture
 
-## Stack
+## Verified stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | React + Vite, deployed on Vercel |
-| Backend | FastAPI, deployed on Render (Docker) |
-| Embeddings | sentence-transformers `all-MiniLM-L6-v2` |
-| Vector store | FAISS (in-memory, ephemeral on free tier) |
-| Retrieval | BM25 + dense hybrid + cross-encoder reranking |
-| LLM | Configurable via `LLM_MODEL` env var (OpenRouter/OpenAI/Anthropic) |
-| Streaming | SSE (`text/event-stream`) |
+| API | FastAPI, Uvicorn, multipart uploads |
+| Embeddings | `sentence-transformers` with `all-MiniLM-L6-v2` by default |
+| Vector store | FAISS in-memory index persisted to the configured data directory |
+| Retrieval | Dense vector search plus BM25-style lexical retrieval in the RAG service |
+| LLM | OpenRouter chat-completions API by default; model and endpoint are configurable |
+| Streaming | Server-Sent Events from the chat route |
+| Storage | Local filesystem data directory; persistence behavior depends on deployment storage |
+| Deployment | Dockerfile and Render configuration are present; public Render health check was unavailable during the 2026-10-03 audit |
 
-## RAG Pipeline
+## RAG pipeline
 
-```
-Upload PDF
-  → chunk (size=512, overlap=64)
-  → embed (MiniLM)
-  → store in FAISS
-
-Query
-  → HyDE expansion
-  → BM25 + dense hybrid retrieval (top_k=5)
-  → cross-encoder rerank
-  → LLM answer generation (streaming SSE)
-```
-
-## Deployment
-
-```
-Render (Backend)
-  runtime: Docker
-  healthcheck: GET /health
-  env: CORS_ORIGINS=https://<your-app>.vercel.app
-
-Vercel (Frontend)
-  framework: Vite
-  root: frontend/
-  build: npm run build
-  output: dist/
-  env: VITE_API_BASE_URL=https://<your-backend>.onrender.com
+```mermaid
+flowchart TD
+    A[PDF upload] --> B[PyPDF2 text extraction]
+    B --> C[Paragraph-aware chunking]
+    C --> D[Sentence-transformers embeddings]
+    D --> E[FAISS index + persisted chunks]
+    Q[User query] --> F[Dense retrieval]
+    Q --> G[Lexical retrieval]
+    F --> H[Merge retrieved context]
+    G --> H
+    H --> I[OpenRouter answer generation]
+    I --> J[JSON or SSE response with source metadata]
 ```
 
-## Security Notes
+## Repository layout
 
-- CORS locked to Vercel domain in production via `CORS_ORIGINS` env var
-- `/docs` and `/redoc` disabled in production (`ENVIRONMENT=production`)
-- No secrets in repo — all via environment variables
-- FAISS index and uploads are ephemeral on free tier (`/tmp`)
+- `app/main.py`: FastAPI application entry point.
+- `app/routes/`: upload, chat, and health endpoints.
+- `app/services/embeddings.py`: embedding model, FAISS index, persistence, and search.
+- `app/services/rag.py`: memory, LLM calls, chunking, ingestion, and query pipeline.
+- `app/config.py`: environment-backed settings.
+- `app/static/`: lightweight browser client assets served by the API.
+- `tests/`: current route tests.
+- `Dockerfile`, `render.yaml`, and `railway.toml`: deployment configuration.
+
+## Configuration and limitations
+
+- LLM requests require `OPENROUTER_API_KEY` unless a test substitutes the service boundary.
+- Embedding model loading can download model assets on first use; this is not an offline-only application.
+- FAISS and uploaded document state are filesystem-backed. Ephemeral deployment storage can lose the index and documents when the instance restarts.
+- Conversation memory is process-local and should not be treated as durable multi-user state.
+- The repository currently has a small test suite relative to the feature surface; retrieval quality, citation faithfulness, latency, and throughput remain **pending verification** without a checked-in evaluation dataset and benchmark harness.
