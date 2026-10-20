@@ -81,7 +81,7 @@ async def stream_chat_endpoint(req: QueryRequest):
                 yield f"data: {json.dumps(chunk)}\n\n"
         except Exception as e:  # noqa: BLE001
             logger.error(f"Stream failed: {e}", exc_info=True)
-            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'content': 'Streaming pipeline failed.'})}\n\n"
 
     return StreamingResponse(
         event_generator(), media_type="text/event-stream",
