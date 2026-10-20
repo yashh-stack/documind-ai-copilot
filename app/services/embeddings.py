@@ -1,15 +1,19 @@
-import os, json, pickle
-import numpy as np
-from typing import List, Dict, Any, Optional
-from sentence_transformers import SentenceTransformer
+import json
+import os
+import pickle
+from typing import Any
+
 import faiss
+import numpy as np
+from sentence_transformers import SentenceTransformer
+
 from app.config import get_settings, logger
 
 s = get_settings()
 
-_model: Optional[SentenceTransformer] = None
-_index: Optional[faiss.IndexIDMap] = None
-_chunks: List[Dict[str, Any]] = []
+_model: SentenceTransformer | None = None
+_index: faiss.IndexIDMap | None = None
+_chunks: list[dict[str, Any]] = []
 _next_id: int = 0
 EMBEDDING_DIM = 384
 
@@ -51,7 +55,7 @@ def initialize():
                 _next_id = len(_chunks)
             logger.info(f"Loaded FAISS index with {len(_chunks)} chunks from {s.data_dir}")
             return
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"Failed to load persisted index: {e}")
 
     _index = faiss.IndexIDMap(faiss.IndexFlatIP(EMBEDDING_DIM))
@@ -60,7 +64,7 @@ def initialize():
     logger.info("Initialized new in-memory FAISS index")
 
 
-def embed_texts(texts: List[str]) -> np.ndarray:
+def embed_texts(texts: list[str]) -> np.ndarray:
     model = _get_model()
     embeddings = model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
     return np.array(embeddings, dtype=np.float32)
@@ -70,7 +74,7 @@ def embed_text(text: str) -> np.ndarray:
     return embed_texts([text])[0]
 
 
-def add_chunks(chunks: List[Dict[str, Any]]):
+def add_chunks(chunks: list[dict[str, Any]]):
     global _next_id
     if not chunks:
         return
@@ -86,7 +90,7 @@ def add_chunks(chunks: List[Dict[str, Any]]):
     logger.info(f"Added {len(chunks)} chunks (total: {len(_chunks)})")
 
 
-def search(query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+def search(query: str, top_k: int = 5) -> list[dict[str, Any]]:
     if not _chunks or _index.ntotal == 0:
         return []
     query_vec = embed_text(query).reshape(1, -1)
@@ -122,7 +126,7 @@ def remove_document(doc_id: str) -> int:
     return len(ids_to_remove)
 
 
-def list_documents() -> List[Dict]:
+def list_documents() -> list[dict]:
     seen = {}
     for c in _chunks:
         did = c.get("document_id", "")
@@ -148,5 +152,5 @@ def _persist():
             pickle.dump(_chunks, f)
         with open(_get_meta_path(), "w") as f:
             json.dump({"next_id": _next_id}, f)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Persist failed: {e}")

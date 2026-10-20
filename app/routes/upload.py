@@ -1,7 +1,8 @@
-from typing import List, Optional
-from fastapi import APIRouter, UploadFile, File, status
+
+from fastapi import APIRouter, File, UploadFile, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+
 from app.config import get_settings, logger
 
 router = APIRouter(prefix="/api/v1", tags=["documents"])
@@ -13,9 +14,9 @@ class UploadResponse(BaseModel):
 
     status: str
     message: str
-    document_ids: List[str] = Field(default_factory=list)
+    document_ids: list[str] = Field(default_factory=list)
     chunk_count: int = 0
-    warnings: Optional[List[str]] = None
+    warnings: list[str] | None = None
 
 
 class DocumentItem(BaseModel):
@@ -29,7 +30,7 @@ class DocumentListResponse(BaseModel):
     """Represents the current indexed document collection."""
 
     status: str
-    documents: List[DocumentItem]
+    documents: list[DocumentItem]
     count: int
 
 
@@ -41,7 +42,7 @@ class DeleteDocumentResponse(BaseModel):
 
 
 @router.post("/upload", response_model=UploadResponse)
-async def upload_documents(files: List[UploadFile] = File(...)) -> UploadResponse | JSONResponse:
+async def upload_documents(files: list[UploadFile] = File(...)) -> UploadResponse | JSONResponse:  # noqa: B008
     """Ingests uploaded PDF files from multipart/form-data into the vector index."""
     doc_ids = []
     total_chunks = 0
@@ -68,9 +69,9 @@ async def upload_documents(files: List[UploadFile] = File(...)) -> UploadRespons
             logger.info(f"Ingested {filename} -> {doc_id} ({chunk_count} chunks)")
 
         except ValueError as e:
-            errors.append(f"{filename}: {str(e)}")
+            errors.append(f"{filename}: {e!s}")
             logger.error(f"Ingestion failed for {filename}: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             errors.append(f"{filename}: Processing error")
             logger.error(f"Unexpected error processing {filename}: {e}", exc_info=True)
 

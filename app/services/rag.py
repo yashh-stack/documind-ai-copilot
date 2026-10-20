@@ -1,7 +1,13 @@
-import os, re, json, time, uuid, asyncio
-from typing import List, Dict, Any, Optional, Tuple
+import asyncio
+import json
+import re
+import time
+import uuid
 from collections import defaultdict
+from typing import Any
+
 import httpx
+
 from app.config import get_settings, logger
 from app.services import embeddings
 
@@ -64,7 +70,7 @@ Respond helpfully:
 # Memory
 # ═══════════════════════════════════════════════════
 
-_session_memory: Dict[str, List[Dict]] = defaultdict(list)
+_session_memory: dict[str, list[dict]] = defaultdict(list)
 
 
 class MemoryManager:
@@ -111,7 +117,7 @@ class LLMQuotaError(LLMError):
 
 
 async def _call_openrouter_sync(
-    messages: List[Dict], max_tokens: int = 1000, temperature: float = None,
+    messages: list[dict], max_tokens: int = 1000, temperature: float | None = None,
 ) -> dict:
     api_key = s.openrouter_api_key
     if not api_key:
@@ -153,14 +159,14 @@ async def _call_openrouter_sync(
             continue
         except (LLMError, LLMQuotaError):
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             raise LLMError(f"LLM call failed: {e}")
 
     raise LLMError(f"LLM call failed after {s.llm_max_retries} retries: {last_error}")
 
 
 async def _call_openrouter_stream(
-    messages: List[Dict], max_tokens: int = 1000, temperature: float = None,
+    messages: list[dict], max_tokens: int = 1000, temperature: float | None = None,
 ):
     api_key = s.openrouter_api_key
     if not api_key:
@@ -182,11 +188,13 @@ async def _call_openrouter_stream(
     last_error = None
     for attempt in range(s.llm_max_retries):
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                async with client.stream(
+            async with (
+                httpx.AsyncClient(timeout=60.0) as client,
+                client.stream(
                     "POST", f"{s.openrouter_base_url}/chat/completions",
                     headers=headers, json=body,
-                ) as resp:
+                ) as resp,
+            ):
                     if resp.status_code == 401:
                         raise LLMError("Invalid OpenRouter API key")
                     if resp.status_code in (402, 429):
@@ -212,14 +220,14 @@ async def _call_openrouter_stream(
             continue
         except (LLMError, LLMQuotaError):
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             raise LLMError(f"LLM call failed: {e}")
 
     raise LLMError(f"LLM call failed after {s.llm_max_retries} retries: {last_error}")
 
 
 async def generate_answer(query: str, context: str = "",
-                          history: List[Dict] = None, no_context: bool = False) -> str:
+                          history: list[dict] | None = None, no_context: bool = False) -> str:
     history_str = ""
     if history:
         lines = []
@@ -241,7 +249,7 @@ async def generate_answer(query: str, context: str = "",
 
 
 async def stream_answer(query: str, context: str = "",
-                        history: List[Dict] = None, no_context: bool = False):
+                        history: list[dict] | None = None, no_context: bool = False):
     history_str = ""
     if history:
         lines = []
@@ -265,16 +273,16 @@ async def stream_answer(query: str, context: str = "",
             if content:
                 yield content
     except LLMQuotaError as e:
-        yield f"\n\n> WARNING: {str(e)}"
+        yield f"\n\n> WARNING: {e!s}"
     except LLMError as e:
-        yield f"\n\n> ERROR: {str(e)}"
+        yield f"\n\n> ERROR: {e!s}"
 
 
 # ═══════════════════════════════════════════════════
 # Chunking
 # ═══════════════════════════════════════════════════
 
-def chunk_text(text: str, document_id: str) -> List[Dict[str, Any]]:
+def chunk_text(text: str, document_id: str) -> list[dict[str, Any]]:
     paragraphs = re.split(r'\n{2,}', text)
     chunks = []
     current_paras = []
@@ -318,9 +326,10 @@ def chunk_text(text: str, document_id: str) -> List[Dict[str, Any]]:
 # Ingestion
 # ═══════════════════════════════════════════════════
 
-async def ingest_pdf(file_bytes: bytes, filename: str) -> Tuple[str, int]:
-    import PyPDF2
+async def ingest_pdf(file_bytes: bytes, filename: str) -> tuple[str, int]:
     from io import BytesIO
+
+    import PyPDF2
 
     doc_id = str(uuid.uuid4())[:8] + "_" + filename.replace(" ", "_").lower().replace(".pdf", "")
 
@@ -336,7 +345,7 @@ async def ingest_pdf(file_bytes: bytes, filename: str) -> Tuple[str, int]:
                 full_text_parts.append(f"\nPAGE_{i + 1}\n{text.strip()}")
     except ValueError:
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         raise ValueError(f"Invalid PDF structure: {e}")
 
     raw_text = "\n".join(full_text_parts)
@@ -356,8 +365,8 @@ async def ingest_pdf(file_bytes: bytes, filename: str) -> Tuple[str, int]:
 # Pipeline
 # ═══════════════════════════════════════════════════
 
-async def run_pipeline(query: str, history: List[Dict] = None,
-                       session_id: str = "default") -> Tuple[str, List[Dict], Dict]:
+async def run_pipeline(query: str, history: list[dict] | None = None,
+                       session_id: str = "default") -> tuple[str, list[dict], dict]:
     pipeline_start = time.time()
     memory = MemoryManager(session_id)
     retrieved = embeddings.search(query, top_k=s.top_k_retrieval)
@@ -395,7 +404,7 @@ async def run_pipeline(query: str, history: List[Dict] = None,
     return answer, citations, extras
 
 
-async def stream_pipeline(query: str, history: List[Dict] = None, session_id: str = "default"):
+async def stream_pipeline(query: str, history: list[dict] | None = None, session_id: str = "default"):
     pipeline_start = time.time()
     memory = MemoryManager(session_id)
     retrieved = embeddings.search(query, top_k=s.top_k_retrieval)
