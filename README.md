@@ -531,6 +531,24 @@ curl -X POST http://localhost:8000/api/v1/query \
   -d '{"query":"What is the refund policy?"}'
 ```
 
+### Portfolio Automation (Non-TraceOps Repos)
+
+Use the automation script to audit all repositories for `yashh-stack` except `traceops-*` and `trace-rag`, classify deployment readiness, and generate dashboard artifacts.
+
+```bash
+python scripts/portfolio_automation.py --owner yashh-stack --output-dir docs/portfolio
+```
+
+Optional live probing:
+
+```bash
+python scripts/portfolio_automation.py --owner yashh-stack --probe-live-urls
+```
+
+Outputs:
+- `docs/portfolio/portfolio_registry.json`
+- `docs/portfolio/portfolio_dashboard.md`
+
 ---
 
 ## Troubleshooting
