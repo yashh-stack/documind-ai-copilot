@@ -1,35 +1,37 @@
 import json
+from typing import Any
+
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+
 from app.config import logger
-from app.services.rag import run_pipeline, stream_pipeline, LLMError, LLMQuotaError
+from app.services.rag import LLMError, LLMQuotaError, run_pipeline, stream_pipeline
 
 router = APIRouter(prefix="/api/v1", tags=["chat"])
 
 
 class QueryRequest(BaseModel):
     question: str = Field(..., min_length=2, max_length=2000)
-    session_id: Optional[str] = "default"
-    history: Optional[List[Dict[str, str]]] = []
+    session_id: str | None = "default"
+    history: list[dict[str, str]] | None = []
 
 
 class CitationItem(BaseModel):
     document_id: str
     page: int
     snippet: str
-    relevance_score: Optional[float] = 0.0
+    relevance_score: float | None = 0.0
 
 
 class QueryResponse(BaseModel):
-    answer: Optional[str]
-    citations: List[CitationItem]
+    answer: str | None
+    citations: list[CitationItem]
     status: str
-    message: Optional[str] = None
-    confidence_score: Optional[float] = 0.0
-    latency_ms: Optional[float] = 0.0
-    eval_metrics: Optional[Dict[str, Any]] = {}
+    message: str | None = None
+    confidence_score: float | None = 0.0
+    latency_ms: float | None = 0.0
+    eval_metrics: dict[str, Any] | None = {}
 
 
 @router.post("/query", response_model=QueryResponse)
@@ -59,7 +61,7 @@ async def query_endpoint(req: QueryRequest):
             "message": str(e), "error_type": "llm_error",
             "confidence_score": 0.0, "latency_ms": 0.0,
         })
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Pipeline failed: {e}", exc_info=True)
         return JSONResponse(status_code=500, content={
             "answer": None, "citations": [], "status": "error",
@@ -77,9 +79,9 @@ async def stream_chat_endpoint(req: QueryRequest):
                 query=req.question, history=req.history, session_id=req.session_id,
             ):
                 yield f"data: {json.dumps(chunk)}\n\n"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Stream failed: {e}", exc_info=True)
-            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'content': 'Streaming pipeline failed.'})}\n\n"
 
     return StreamingResponse(
         event_generator(), media_type="text/event-stream",

@@ -1,13 +1,15 @@
-import os, json, time, uuid
-from pathlib import Path
+import json
+import os
+import time
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from app.config import get_settings, logger
-from app.routes import upload, chat, health
+from app.routes import chat, health, upload
 from app.services import embeddings
 
 s = get_settings()

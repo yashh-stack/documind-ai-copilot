@@ -1,6 +1,8 @@
-import os, json, logging
+import json
+import logging
+import os
 from functools import lru_cache
-from typing import Optional
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -42,9 +44,9 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     port: int = 8000
 
-    anthropic_api_key: Optional[str] = None
-    openai_api_key: Optional[str] = None
-    openrouter_api_key: Optional[str] = None
+    anthropic_api_key: str | None = None
+    openai_api_key: str | None = None
+    openrouter_api_key: str | None = None
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     llm_model: str = "deepseek/deepseek-chat-v3-0324:free"
     llm_temperature: float = 0.15
@@ -64,6 +66,6 @@ class Settings(BaseSettings):
     frontend_api_url: str = ""
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     return Settings()

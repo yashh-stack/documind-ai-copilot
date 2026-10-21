@@ -1,6 +1,5 @@
 import sys
 import types
-from typing import Tuple
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -11,7 +10,7 @@ from app.routes import upload
 def test_upload_documents_accepts_multipart_pdf(monkeypatch) -> None:
     """Verifies multipart PDF uploads are accepted and routed to ingestion."""
 
-    async def fake_ingest_pdf(file_bytes: bytes, filename: str) -> Tuple[str, int]:
+    async def fake_ingest_pdf(file_bytes: bytes, filename: str) -> tuple[str, int]:
         """Returns a stable ingestion result without mutating the vector index."""
         assert file_bytes == b"%PDF-1.4\nfake pdf bytes"
         assert filename == "sample.pdf"
